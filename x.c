@@ -16,6 +16,10 @@
 #include <X11/XKBlib.h>
 #include <X11/Xresource.h>
 
+//for inotify implementation of dynamic wall-reloading
+#include <sys/inotify.h>
+
+
 static char *argv0;
 #include "arg.h"
 #include "st.h"
@@ -195,7 +199,7 @@ static void mousereport(XEvent *);
 static char *kmap(KeySym, uint);
 static int match(uint, uint);
 
-static void run(void);
+static Bool run(void);
 static void usage(void);
 
 static void (*handler[LASTEvent])(XEvent *) = {
@@ -1941,7 +1945,69 @@ resize(XEvent *e)
 	cresize(e->xconfigure.width, e->xconfigure.height);
 }
 
-void
+
+#define EVENT_SIZE  ( sizeof (struct inotify_event) )
+#define BUF_LEN     ( 1024 * ( EVENT_SIZE + 16 ) )
+
+//terminates current process when /tmp/wal is touched
+void watch()
+{
+  char buffer[BUF_LEN];
+  //make wal file if not present
+  FILE *fptr;
+  fptr = fopen("/tmp/wal", "rb+");
+  if(fptr == NULL) //if file does not exist, create it
+  {
+      fptr = fopen("/tmp/wal", "wb");
+  }
+  fclose(fptr);
+
+  int fd = inotify_init();
+  /*checking for error*/
+  if ( fd < 0 ) {
+    perror( "inotify_init" );
+  }
+  int wal = inotify_add_watch( fd, "/tmp/wal", IN_DELETE );
+  Bool reload = False;
+
+  while (!reload) {
+     int i = 0;
+     int length = read( fd, buffer, sizeof(buffer) ); 
+
+     /*checking for error*/
+     if ( length < 0 ) {
+       exit(-1);
+     }  
+
+     while( i < length) {
+	   struct inotify_event *event = ( struct inotify_event * ) &buffer[ i ];
+	   if ( i < length ){
+		   if ( event ->mask & IN_DELETE){
+			   reload = True;
+		   }
+	   }
+       	i += EVENT_SIZE + event->len;
+	}
+  }
+  inotify_rm_watch( fd, wal );
+  close( fd );
+  exit(0);
+
+
+}
+
+//returns pid of new inotify process watching wal file
+int new_inotify(void){
+	pid_t pid = fork();
+	//printf("%d",pid);
+	if (pid == 0) {
+		watch();
+		exit(0);
+	}
+	return pid;
+}
+
+Bool
 run(void)
 {
 	XEvent ev;
@@ -1951,6 +2017,8 @@ run(void)
 	int ttyfd;
 	struct timespec drawtimeout, *tv = NULL, now, last, lastblink;
 	long deltatime;
+	pid_t cpid;
+	pid_t wait;
 
 	/* Waiting for window mapping */
 	do {
@@ -1974,7 +2042,31 @@ run(void)
 	clock_gettime(CLOCK_MONOTONIC, &last);
 	lastblink = last;
 
+	//spawn new inotify process
+	cpid = new_inotify();
+	int st;
+	int* status;
+	status = &st;
+
 	for (xev = actionfps;;) {
+
+		//check if inotify daemon is running
+	  	wait = waitpid(cpid, status, WNOHANG);
+		printf("%d", wait);
+		//if not, there was a change, reload colors and start new inotify process
+		
+		//if (WIFEXITED(st)){
+		//int killed = kill(cpid,0);
+	//	printf("%d",killed);
+		//if (kill(cpid,0)!=0){
+		if (!wait==0){
+			//config_init();
+			//xinit(cols, rows);
+			//cpid = new_inotify();
+			return True;
+		}
+	
+
 		FD_ZERO(&rfd);
 		FD_SET(ttyfd, &rfd);
 		FD_SET(xfd, &rfd);
@@ -2116,6 +2208,18 @@ usage(void)
 	    " [stty_args ...]\n", argv0, argv0);
 }
 
+
+Bool init(void){
+	config_init();
+	cols = MAX(cols, 1);
+	rows = MAX(rows, 1);
+	tnew(cols, rows);
+	xinit(cols, rows);
+	xsetenv();
+	selinit();
+	return run();
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -2183,6 +2287,7 @@ run:
 	if(!(xw.dpy = XOpenDisplay(NULL)))
 		die("Can't open display\n");
 
+	/*
 	config_init();
 	cols = MAX(cols, 1);
 	rows = MAX(rows, 1);
@@ -2191,6 +2296,10 @@ run:
 	xsetenv();
 	selinit();
 	run();
-
+	*/
+	Bool reset = True;
+	while (reset){
+		reset = init();
+	}
 	return 0;
 }
