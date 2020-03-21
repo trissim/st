@@ -2092,15 +2092,30 @@ config_init(void)
 	char *resm;
 	XrmDatabase db;
 	ResourcePref *p;
+	Display *temp_display = XOpenDisplay(NULL);
 
 	XrmInitialize();
-	resm = XResourceManagerString(xw.dpy);
+	resm = XResourceManagerString(temp_display);
 	if (!resm)
 		return;
 
 	db = XrmGetStringDatabase(resm);
 	for (p = resources; p < resources + LEN(resources); p++)
 		resource_load(db, p->name, p->type, p->dst);
+	XFlush(temp_display);
+}
+
+void
+reload(int sig)
+{
+	config_init();
+	xloadcols();
+	ttywrite("\033[I", 3,0);
+	cresize(0,0);
+	redraw();
+	xhints();
+	xsetmode(1, MODE_FOCUSED);
+	signal(SIGUSR1, reload);
 }
 
 void
@@ -2186,6 +2201,7 @@ run:
 	config_init();
 	cols = MAX(cols, 1);
 	rows = MAX(rows, 1);
+	signal(SIGUSR1, reload);
 	tnew(cols, rows);
 	xinit(cols, rows);
 	xsetenv();
