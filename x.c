@@ -15,6 +15,7 @@
 #include <X11/Xft/Xft.h>
 #include <X11/XKBlib.h>
 #include <X11/Xresource.h>
+#include <X11/extensions/Xrandr.h>
 
 static char *argv0;
 #include "arg.h"
@@ -263,6 +264,42 @@ static char *opt_name  = NULL;
 static char *opt_title = NULL;
 
 static int oldbutton = 3; /* button event on startup: 3 = release */
+
+
+void override_setup(void)
+{
+	if (xw.attrs.override_redirect == 1){
+		XGrabKeyboard(xw.dpy, DefaultRootWindow(xw.dpy), False, GrabModeAsync, GrabModeAsync, CurrentTime);
+		XRRMonitorInfo* active; 
+		int nmons = 1;
+		active = XRRGetMonitors(xw.dpy,DefaultRootWindow(xw.dpy), True, &nmons);
+		Window window_returned;
+		int win_x, win_y;
+		unsigned int mask_return;
+		int i;
+		int cursor_x;
+		int cursor_y;
+		int t_min_w;
+		int t_max_w;
+		int t_min_h;
+		int t_max_h;
+		for (i = 0; i < nmons ; i++){
+			XQueryPointer(xw.dpy, DefaultRootWindow(xw.dpy), &window_returned,
+			                &window_returned, &cursor_x, &cursor_y, &win_x, &win_y,
+			                &mask_return);
+			t_max_w = (active[i]).x + (active[i]).width;
+			t_min_w = (active[i]).x;
+			t_max_h = (active[i]).y + (active[i]).height;
+			t_min_h = (active[i]).y;
+			if (cursor_x < t_max_w && cursor_x >= t_min_w && cursor_y < t_max_h && cursor_y >= t_min_h){
+				int width = (active[i]).width;
+				int height = (active[i]).height;
+				xw.l = (active[i]).x+(width/2)-(win.w/2);
+				xw.t = (active[i]).y+(height/2)-(win.h/2);
+			}
+		}
+	}
+}
 
 void
 clipcopy(const Arg *dummy)
@@ -1242,10 +1279,12 @@ xinit(int cols, int rows)
 		| ButtonMotionMask | ButtonPressMask | ButtonReleaseMask;
 	xw.attrs.colormap = xw.cmap;
 
+	override_setup();	
+
 	xw.win = XCreateWindow(xw.dpy, parent, xw.l, xw.t,
 			win.w, win.h, 0, xw.depth, InputOutput,
 			xw.vis, CWBackPixel | CWBorderPixel | CWBitGravity
-			| CWEventMask | CWColormap, &xw.attrs);
+			| CWEventMask | CWColormap | CWOverrideRedirect, &xw.attrs);
 
 	memset(&gcvalues, 0, sizeof(gcvalues));
 	gcvalues.graphics_exposures = False;
@@ -2161,6 +2200,9 @@ main(int argc, char *argv[])
 		break;
 	case 'o':
 		opt_io = EARGF(usage());
+		break;
+	case 'O':
+		xw.attrs.override_redirect = 1;
 		break;
 	case 'l':
 		opt_line = EARGF(usage());
