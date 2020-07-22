@@ -5,8 +5,10 @@
  *
  * font: see http://freedesktop.org/software/fontconfig/fontconfig-user.html
  */
-static char *font = "mono:pixelsize=14:antialias=true:autohint=true";
-static char *font2[] = { "JoyPixels:pixelsize=10:antialias=true:autohint=true" };
+//static char *font = "mono:pixelsize=14:antialias=true:autohint=true";
+//static char *font2[] = { "JoyPixels:pixelsize=10:antialias=true:autohint=true" };
+static char *font = "Terminus:size=8:antialias=true:autohint=true";
+static char *font2[] = { "JoyPixels:size=8:antialias=true:autohint=true" };
 static int borderpx = 2;
 
 /*
@@ -26,7 +28,7 @@ char *vtiden = "\033[?6c";
 
 /* Kerning / character bounding-box multipliers */
 static float cwscale = 1.0;
-static float chscale = 1.0;
+static float chscale = 1.2;
 
 /*
  * word delimiter string
@@ -55,7 +57,7 @@ static double maxlatency = 33;
  * blinking timeout (set to 0 to disable blinking) for the terminal blinking
  * attribute.
  */
-static unsigned int blinktimeout = 800;
+static unsigned int blinktimeout = 500;
 
 /*
  * interval (in milliseconds) between each successive call to ximspot. This
@@ -108,7 +110,7 @@ char *termname = "st-256color";
 unsigned int tabspaces = 8;
 
 /* bg opacity */
-float alpha = 0.95;
+float alpha = 0.9;
 
 /* Terminal colors (16 first used in escape sequence) */
 static const char *colorname[] = {
@@ -147,13 +149,20 @@ unsigned int defaultcs = 256;
 unsigned int defaultrcs = 257;
 
 /*
- * Default shape of cursor
- * 2: Block ("█")
- * 4: Underline ("_")
- * 6: Bar ("|")
- * 7: Snowman ("☃")
+ * https://invisible-island.net/xterm/ctlseqs/ctlseqs.html#h4-Functions-using-CSI-_-ordered-by-the-final-character-lparen-s-rparen:CSI-Ps-SP-q.1D81
+ * Default style of cursor
+ * 0: Blinking block
+ * 1: Blinking block (default)
+ * 2: Steady block ("█")
+ * 3: Blinking underline
+ * 4: Steady underline ("_")
+ * 5: Blinking bar
+ * 6: Steady bar ("|")
+ * 7: Blinking st cursor
+ * 8: Steady st cursor
  */
-static unsigned int cursorshape = 2;
+static unsigned int cursorstyle = 1;
+static Rune stcursor = 0x2603; /* snowman (U+2603) */
 
 /*
  * Default columns and rows numbers
