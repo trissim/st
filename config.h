@@ -331,7 +331,7 @@ static uint ignoremod = Mod2Mask|XK_SWITCH_MOD;
  * Note that if you want to use ShiftMask with selmasks, set this to an other
  * modifier, set to 0 to not use it.
  */
-static uint forceselmod = ShiftMask;
+static uint forceselmod = Mod1Mask;
 
 /*
  * This is the huge key array which defines all compatibility to the Linux
